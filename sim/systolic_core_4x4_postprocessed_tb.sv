@@ -119,8 +119,8 @@ module systolic_core_4x4_postprocessed_tb;
         bias_index = '0;
         bias_data = '0;
         start = 1'b0;
-        quant_multiplier = 32'sd1;
-        quant_shift = 6'd0;
+        quant_multiplier = 32'sd3;
+        quant_shift = 6'd2;
 
         repeat (3) @(posedge clk);
         @(negedge clk);
@@ -161,11 +161,11 @@ module systolic_core_4x4_postprocessed_tb;
         write_matrix(1'b0, 3, 2, -8'sd1);
         write_matrix(1'b0, 3, 3, 8'sd0);
 
-        // Biases make result 10 negative before ReLU and create saturation cases.
+        // Biases create ReLU, saturation, and a 40 * 3 >>> 2 = 30 case.
         for (int index = 0; index < 16; index = index + 1)
             write_bias(index[3:0], (index == 10) ? -32'sd20 : 32'sd0);
-        write_bias(4'd0, 32'sd120);
-        write_bias(4'd1, 32'sd120);
+        write_bias(4'd0, 32'sd1000);
+        write_bias(4'd14, 32'sd33);
 
         @(negedge clk);
         start = 1'b1;
@@ -177,14 +177,64 @@ module systolic_core_4x4_postprocessed_tb;
             #1;
             if (result_accumulator !== expected_acc(index[3:0]))
                 $fatal(1, "ACC FAILED at %0d", index);
-            if (index == 10) begin
+            if (result_index !== index[3:0])
+                $fatal(1, "INDEX FAILED: expected %0d received %0d", index, result_index);
+            if (result_row !== index[3:2])
+                $fatal(1, "ROW FAILED at %0d: expected %0d received %0d", index,
+                       index[3:2], result_row);
+            if (result_col !== index[1:0])
+                $fatal(1, "COLUMN FAILED at %0d: expected %0d received %0d", index,
+                       index[1:0], result_col);
+            if ((index == 10) || (index == 11) || (index == 12) || (index == 13)) begin
                 if (result_data !== 8'sd0)
                     $fatal(1, "RELU FAILED: expected 0, received %0d", $signed(result_data));
-            end else if ((index == 0) || (index == 1)) begin
+            end else if (index == 0) begin
                 if (result_data !== 8'sd127)
                     $fatal(1, "SATURATION FAILED at %0d", index);
-            end else if (result_data !== expected_acc(index[3:0])) begin
-                $fatal(1, "QUANTIZED RESULT FAILED at %0d", index);
+            end else if (index == 14) begin
+                if (result_data !== 8'sd30)
+                    $fatal(1, "QUANTIZATION FAILED: expected 30, received %0d",
+                           $signed(result_data));
+            end else if (index == 1) begin
+                if (result_data !== 8'sd99)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 99, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 2) begin
+                if (result_data !== 8'sd0)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 0, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 3) begin
+                if (result_data !== 8'sd9)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 9, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 4) begin
+                if (result_data !== 8'sd29)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 29, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 5) begin
+                if (result_data !== 8'sd18)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 18, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 6) begin
+                if (result_data !== 8'sd6)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 6, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 7) begin
+                if (result_data !== 8'sd21)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 21, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 8) begin
+                if (result_data !== 8'sd9)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 9, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 9) begin
+                if (result_data !== 8'sd18)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 18, received %0d",
+                           index, $signed(result_data));
+            end else if (index == 15) begin
+                if (result_data !== 8'sd0)
+                    $fatal(1, "QUANTIZATION FAILED at %0d: expected 0, received %0d",
+                           index, $signed(result_data));
             end
             @(posedge clk);
         end
