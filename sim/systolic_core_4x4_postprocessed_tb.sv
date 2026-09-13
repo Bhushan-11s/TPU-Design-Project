@@ -172,9 +172,17 @@ module systolic_core_4x4_postprocessed_tb;
         @(posedge clk);
         #1 start = 1'b0;
 
-        wait (result_valid);
+        // Processed results appear after the post-processing pipeline fills.
+        // result_valid, metadata, accumulator, and data are mutually aligned,
+        // so each valid cycle is checked as one result in ascending order.
         for (int index = 0; index < 16; index = index + 1) begin
+            @(posedge clk);
             #1;
+            while (!result_valid) begin
+                @(posedge clk);
+                #1;
+            end
+
             if (result_accumulator !== expected_acc(index[3:0]))
                 $fatal(1, "ACC FAILED at %0d", index);
             if (result_index !== index[3:0])
@@ -236,7 +244,6 @@ module systolic_core_4x4_postprocessed_tb;
                     $fatal(1, "QUANTIZATION FAILED at %0d: expected 0, received %0d",
                            index, $signed(result_data));
             end
-            @(posedge clk);
         end
 
         wait (done);
